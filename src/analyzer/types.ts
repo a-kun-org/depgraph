@@ -153,6 +153,22 @@ export interface LayerViolationSummary {
   samples: { severity: string; fromLayer: string; toLayer: string; from: string; to: string }[];
 }
 
+/** 層×層行列など、ファイル集合と依存の切り口ごとのサマリ */
+export interface LayerScopeSummary {
+  layers: LayerSummary[];
+  layerMatrix: LayerMatrix;
+  layerViolations: LayerViolationSummary;
+  unclassifiedRate: number;
+  unclassifiedTopDirs: UnclassifiedDirStat[];
+}
+
+export interface LayerMatrixScopes {
+  /** clusters 設定のクラスタ名ごと(クラスタ内の依存のみ) */
+  byCluster: Record<string, LayerScopeSummary>;
+  /** クラスタをまたぐ依存のみ */
+  interCluster: LayerScopeSummary;
+}
+
 export interface FeatureSummary {
   key: string;
   cluster: string;
@@ -222,6 +238,8 @@ export interface AnalysisResult {
     layerMatrix: LayerMatrix;
     /** 「層の依存方向違反」の件数と代表例 */
     layerViolations: LayerViolationSummary;
+    /** 全体に加え、クラスタ別・クラスタ間の層サマリ */
+    layerMatrixScopes?: LayerMatrixScopes;
     /** クラスタ × feature ごとのファイル数と層内訳 */
     features: FeatureSummary[];
     /** 未分類ファイルの割合(0〜1) */

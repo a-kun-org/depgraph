@@ -55,6 +55,12 @@
         <section>
           <h2>層 × 層 依存行列</h2>
           <p class="hint">セルをクリックすると該当の依存・違反をハイライトします。濃いセルほど依存本数が多いです。</p>
+          <label class="matrix-scope-label">
+            集計範囲
+            <select id="matrix-scope" title="行列・層違反・未分類率の切り口">
+              <option value="overall" selected>全体</option>
+            </select>
+          </label>
           <div id="layer-matrix" class="layer-matrix"></div>
           <div id="layer-legend" class="layer-legend"></div>
         </section>

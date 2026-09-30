@@ -8,13 +8,15 @@ import type {
   GraphNode,
   Language,
   LayerMatrix,
+  LayerMatrixScopes,
+  LayerScopeSummary,
   LayerSummary,
   LayerViolationSummary,
   SourceFile,
   UnclassifiedDirStat,
 } from "./types.js";
 import { computeFileEdges } from "./graph.js";
-import { majorityKey } from "./cluster.js";
+import { majorityKey, summarizeClusters } from "./cluster.js";
 
 /* ------------------------------------------------------------------ *
  * アーキテクチャ層(ドメイン / アプリケーション / インフラ / プレゼンテーション …)
@@ -543,18 +545,31 @@ export function detectArchLayerViolations(graph: DependencyGraph, rules: Analysi
 
 /* ---- サマリ ---- */
 
-export function summarizeLayers(
-  files: SourceFile[],
+export interface LayerScopeOptions {
+  /** 層のファイル数・未分類率の対象(省略時は allFiles) */
+  countFiles?: SourceFile[];
+  /** 行列に含める依存(省略時は全エッジ) */
+  includeEdge?: (from: SourceFile, to: SourceFile) => boolean;
+  /** 層違反に含める issue(省略時は archlayer の全件) */
+  includeArchIssue?: (issue: DesignIssue, from?: SourceFile, to?: SourceFile) => boolean;
+}
+
+function archIssueEndpoints(
+  issue: DesignIssue,
+  byId: Map<string, SourceFile>,
+): { from?: SourceFile; to?: SourceFile } {
+  const from = issue.locations[0] ? byId.get(issue.locations[0]) : undefined;
+  const to = issue.locations[1] ? byId.get(issue.locations[1]) : undefined;
+  return { from, to };
+}
+
+export function summarizeLayerScope(
+  allFiles: SourceFile[],
   rules: AnalysisRules,
   issues: DesignIssue[],
-): {
-  layers: LayerSummary[];
-  layerMatrix: LayerMatrix;
-  layerViolations: LayerViolationSummary;
-  features: FeatureSummary[];
-  unclassifiedRate: number;
-  unclassifiedTopDirs: UnclassifiedDirStat[];
-} {
+  opts: LayerScopeOptions = {},
+): LayerScopeSummary {
+  const countFiles = opts.countFiles ?? allFiles;
   const resolved = resolveArchLayers(rules.archLayers);
   const display = [...resolved].sort((a, b) => b.order - a.order);
   const infos = [
@@ -570,7 +585,7 @@ export function summarizeLayers(
   const names = infos.map((l) => l.name);
   const counts = new Map<string, number>(names.map((n) => [n, 0]));
   const byLang = new Map<string, Map<string, number>>();
-  for (const f of files) {
+  for (const f of countFiles) {
     const k = f.layerKey ?? LAYER_UNCLASSIFIED;
     counts.set(k, (counts.get(k) ?? 0) + 1);
     if (!byLang.has(f.language)) byLang.set(f.language, new Map());
@@ -579,7 +594,14 @@ export function summarizeLayers(
   }
   for (const k of counts.keys()) if (!names.includes(k)) names.push(k);
 
-  const archIssues = issues.filter((i) => i.id.startsWith("archlayer:"));
+  const byId = new Map(allFiles.map((f) => [f.id, f]));
+  const archIssuesAll = issues.filter((i) => i.id.startsWith("archlayer:"));
+  const archIssues = archIssuesAll.filter((i) => {
+    if (!opts.includeArchIssue) return true;
+    const { from, to } = archIssueEndpoints(i, byId);
+    return opts.includeArchIssue(i, from, to);
+  });
+
   const issueByLayer = new Map<string, number>();
   for (const i of archIssues) {
     const fl = i.details.find((d) => d.startsWith("from_layer: "))?.slice(12) ?? "";
@@ -608,7 +630,8 @@ export function summarizeLayers(
     cells[a] = {};
     for (const b of names) cells[a]![b] = 0;
   }
-  for (const { from, to } of computeFileEdges(files)) {
+  for (const { from, to } of computeFileEdges(allFiles)) {
+    if (opts.includeEdge && !opts.includeEdge(from, to)) continue;
     const a = from.layerKey ?? LAYER_UNCLASSIFIED;
     const b = to.layerKey ?? LAYER_UNCLASSIFIED;
     if (!cells[a]) cells[a] = {};
@@ -659,6 +682,74 @@ export function summarizeLayers(
     samples: sample,
   };
 
+  const unclassifiedFiles = countFiles.filter((f) => (f.layerKey ?? LAYER_UNCLASSIFIED) === LAYER_UNCLASSIFIED);
+  const unclassifiedRate = countFiles.length === 0 ? 0 : unclassifiedFiles.length / countFiles.length;
+  const dirCounts = new Map<string, number>();
+  for (const f of unclassifiedFiles) {
+    const parts = f.relativePath.split("/");
+    const depth = Math.min(3, Math.max(1, parts.length - 1));
+    const dir = parts.slice(0, depth).join("/") || "(root)";
+    dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
+  }
+  const unclassifiedTopDirs: UnclassifiedDirStat[] = [...dirCounts.entries()]
+    .map(([path, count]) => ({ path, count }))
+    .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
+    .slice(0, 10);
+
+  return {
+    layers,
+    layerMatrix,
+    layerViolations,
+    unclassifiedRate,
+    unclassifiedTopDirs,
+  };
+}
+
+export function summarizeLayerMatrixScopes(
+  files: SourceFile[],
+  rules: AnalysisRules,
+  issues: DesignIssue[],
+): LayerMatrixScopes {
+  const byCluster: Record<string, LayerScopeSummary> = {};
+  for (const c of summarizeClusters(files, rules.clusters)) {
+    if (c.fileCount === 0) continue;
+    const key = c.key;
+    byCluster[key] = summarizeLayerScope(files, rules, issues, {
+      countFiles: files.filter((f) => (f.clusterKey ?? "") === key),
+      includeEdge: (from, to) => from.clusterKey === key && to.clusterKey === key,
+      includeArchIssue: (_i, from, to) =>
+        !!from && !!to && from.clusterKey === key && to.clusterKey === key,
+    });
+  }
+  const interCluster = summarizeLayerScope(files, rules, issues, {
+    countFiles: files,
+    includeEdge: (from, to) => {
+      const a = from.clusterKey ?? "";
+      const b = to.clusterKey ?? "";
+      return a !== b && a !== "" && b !== "";
+    },
+    includeArchIssue: (_i, from, to) =>
+      !!from && !!to && (from.clusterKey ?? "") !== (to.clusterKey ?? ""),
+  });
+  return { byCluster, interCluster };
+}
+
+export function summarizeLayers(
+  files: SourceFile[],
+  rules: AnalysisRules,
+  issues: DesignIssue[],
+): {
+  layers: LayerSummary[];
+  layerMatrix: LayerMatrix;
+  layerViolations: LayerViolationSummary;
+  layerMatrixScopes: LayerMatrixScopes;
+  features: FeatureSummary[];
+  unclassifiedRate: number;
+  unclassifiedTopDirs: UnclassifiedDirStat[];
+} {
+  const overall = summarizeLayerScope(files, rules, issues);
+  const layerMatrixScopes = summarizeLayerMatrixScopes(files, rules, issues);
+
   const feat = new Map<string, FeatureSummary>();
   for (const f of files) {
     const cluster = f.clusterKey ?? "";
@@ -674,20 +765,13 @@ export function summarizeLayers(
   }
   const features = [...feat.values()].sort((a, b) => a.cluster.localeCompare(b.cluster) || b.fileCount - a.fileCount);
 
-  const unclassifiedFiles = files.filter((f) => (f.layerKey ?? LAYER_UNCLASSIFIED) === LAYER_UNCLASSIFIED);
-  const unclassifiedRate = files.length === 0 ? 0 : unclassifiedFiles.length / files.length;
-  const dirCounts = new Map<string, number>();
-  for (const f of unclassifiedFiles) {
-    const parts = f.relativePath.split("/");
-    // aggregate at up to 3 levels so monorepo roots stay readable
-    const depth = Math.min(3, Math.max(1, parts.length - 1));
-    const dir = parts.slice(0, depth).join("/") || "(root)";
-    dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
-  }
-  const unclassifiedTopDirs: UnclassifiedDirStat[] = [...dirCounts.entries()]
-    .map(([path, count]) => ({ path, count }))
-    .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path))
-    .slice(0, 10);
-
-  return { layers, layerMatrix, layerViolations, features, unclassifiedRate, unclassifiedTopDirs };
+  return {
+    layers: overall.layers,
+    layerMatrix: overall.layerMatrix,
+    layerViolations: overall.layerViolations,
+    layerMatrixScopes,
+    features,
+    unclassifiedRate: overall.unclassifiedRate,
+    unclassifiedTopDirs: overall.unclassifiedTopDirs,
+  };
 }
