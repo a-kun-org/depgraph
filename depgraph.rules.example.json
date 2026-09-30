@@ -1,0 +1,67 @@
+{
+  "hub": { "degreeThreshold": 10 },
+  "bloat": { "locThreshold": 500 },
+  "orphans": {
+    "ignore": [
+      "**/test/**",
+      "**/tests/**",
+      "**/*_test.*",
+      "**/*Test.cs",
+      "**/main.dart",
+      "**/Program.cs",
+      "**/__init__.py"
+    ]
+  },
+  "clusters": [
+    { "name": "Flutter", "match": ["**/lib/"], "color": "#4fc3f7" },
+    { "name": "Unity", "match": ["**/Assets/"], "color": "#81c784" }
+  ],
+  "featureRoots": [
+    { "match": "Assets/Shared/*", "depth": 1 },
+    { "match": "lib/*", "depth": 1 }
+  ],
+  "archLayers": [
+    {
+      "name": "プレゼンテーション",
+      "match": ["**/Presentation/**", "**/UI/**", "**/Widgets/**", "**/Screens/**"],
+      "mayDependOn": ["アプリケーション", "ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "アプリケーション",
+      "match": ["**/Application/**", "**/Handlers/**", "**/UseCases/**", "**/Services/**"],
+      "mayDependOn": ["ドメイン", "インフラ", "共通・基盤"]
+    },
+    {
+      "name": "ドメイン",
+      "match": ["**/Domain/**", "**/Models/**", "**/Entities/**"],
+      "mayDependOn": ["共通・基盤"]
+    },
+    {
+      "name": "インフラ",
+      "match": ["**/Infrastructure/**", "**/Persistence/**", "**/storage/**", "**/auth/**"],
+      "mayDependOn": ["ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "共通・基盤",
+      "match": ["**/Util/**", "**/Core/**", "**/Common/**", "**/config/**", "**/theme/**", "**/l10n/**"],
+      "mayDependOn": []
+    }
+  ],
+  "layers": [
+    {
+      "name": "api-handlers",
+      "match": ["**/handlers/**"],
+      "mayDependOn": ["api-domain", "api-infra"]
+    },
+    {
+      "name": "api-domain",
+      "match": ["**/domain/**"],
+      "mayDependOn": []
+    },
+    {
+      "name": "api-infra",
+      "match": ["**/infra/**"],
+      "mayDependOn": ["api-domain"]
+    }
+  ]
+}

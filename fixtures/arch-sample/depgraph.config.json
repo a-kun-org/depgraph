@@ -1,0 +1,40 @@
+{
+  "hub": { "degreeThreshold": 6 },
+  "bloat": { "locThreshold": 200 },
+  "clusters": [
+    { "name": "Flutter", "match": ["client/"], "color": "#4fc3f7" },
+    { "name": "Unity", "match": ["game/"], "color": "#81c784" },
+    { "name": "Python API", "match": ["api-svc/"], "color": "#ffd54f" }
+  ],
+  "featureRoots": [
+    { "match": "Assets/Shared/*", "depth": 1 },
+    { "match": "lib/*", "depth": 1 }
+  ],
+  "archLayers": [
+    {
+      "name": "プレゼンテーション",
+      "match": ["**/Presentation/**", "**/lib/widgets/**"],
+      "mayDependOn": ["アプリケーション", "ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "アプリケーション",
+      "match": ["**/Application/**", "**/Handlers/**", "**/Command/**", "**/lib/app/**"],
+      "mayDependOn": ["ドメイン", "インフラ", "共通・基盤"]
+    },
+    {
+      "name": "ドメイン",
+      "match": ["**/Domain/**", "**/Models/**"],
+      "mayDependOn": ["共通・基盤"]
+    },
+    {
+      "name": "インフラ",
+      "match": ["**/Infrastructure/**", "**/lib/storage/**", "**/lib/auth/**"],
+      "mayDependOn": ["ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "共通・基盤",
+      "match": ["**/Util/**", "**/lib/config/**", "**/lib/theme/**", "**/lib/util/**"],
+      "mayDependOn": []
+    }
+  ]
+}

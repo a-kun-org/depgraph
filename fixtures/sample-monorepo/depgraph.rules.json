@@ -1,0 +1,53 @@
+{
+  "hub": {
+    "degreeThreshold": 4
+  },
+  "bloat": {
+    "locThreshold": 300
+  },
+  "orphans": {
+    "ignore": [
+      "**/test/**",
+      "**/tests/**",
+      "**/*_test.*",
+      "**/main.*"
+    ]
+  },
+  "layers": [
+    {
+      "name": "handlers",
+      "match": ["api/handlers/**"],
+      "mayDependOn": ["domain", "infra"]
+    },
+    {
+      "name": "domain",
+      "match": ["api/domain/**"],
+      "mayDependOn": []
+    },
+    {
+      "name": "infra",
+      "match": ["api/infra/**"],
+      "mayDependOn": ["domain"]
+    },
+    {
+      "name": "unity-core",
+      "match": ["unity/Assets/Scripts/Core/**"],
+      "mayDependOn": []
+    },
+    {
+      "name": "unity-ui",
+      "match": ["unity/Assets/Scripts/UI/**"],
+      "mayDependOn": ["unity-core"]
+    },
+    {
+      "name": "flutter-ui",
+      "match": ["flutter/lib/ui/**"],
+      "mayDependOn": ["flutter-services"]
+    },
+    {
+      "name": "flutter-services",
+      "match": ["flutter/lib/services/**"],
+      "mayDependOn": []
+    }
+  ]
+}

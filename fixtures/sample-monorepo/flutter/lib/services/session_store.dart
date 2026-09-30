@@ -1,0 +1,3 @@
+class SessionStore {
+  String? token;
+}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>depgraph</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%233db8a0'/%3E%3Cpath d='M8 22V10h3.2l3.4 8.2L18 10H21v12h-2.4v-7.4L15.4 22h-2.6l-3.2-7.4V22H8z' fill='%230f1419'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/vendor/cytoscape.min.js"></script>
+  <script src="/vendor/dagre.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">depgraph</span>
+        <span id="summary" class="summary"></span>
+      </div>
+      <div class="controls">
+        <label>
+          表示モード
+          <select id="view-mode">
+            <option value="cluster" selected>クラスタ</option>
+            <option value="layer">層</option>
+            <option value="feature">機能</option>
+          </select>
+        </label>
+        <label>
+          展開単位
+          <select id="unit">
+            <option value="directory" selected>ディレクトリ(クリックでファイル)</option>
+            <option value="file">ファイル(上限内なら一括)</option>
+          </select>
+        </label>
+        <label class="search">
+          検索(名前 / パス)
+          <input id="search" type="search" placeholder="例: CameraController" autocomplete="off" />
+          <ul id="search-results" class="search-results hidden"></ul>
+        </label>
+        <button type="button" id="overview" class="btn ghost">概要へ</button>
+        <button type="button" id="fit" class="btn">全体に合わせる</button>
+        <button type="button" id="reload" class="btn ghost">再解析</button>
+        <a id="download" class="btn ghost" href="#" download="depgraph.json">JSON出力</a>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="sidebar">
+        <section>
+          <h2>クラスタ</h2>
+          <p class="hint">既定は層レーンに全ファイルを展開表示します。パンで辿り、検索・フィルタで絞り込みます。「段階展開」ONで従来の折りたたみ操作に戻せます。</p>
+          <ul id="clusters" class="cluster-list"></ul>
+          <p id="cluster-stats" class="muted"></p>
+        </section>
+        <section>
+          <h2>層 × 層 依存行列</h2>
+          <p class="hint">セルをクリックすると該当の依存・違反をハイライトします。濃いセルほど依存本数が多いです。</p>
+          <div id="layer-matrix" class="layer-matrix"></div>
+          <div id="layer-legend" class="layer-legend"></div>
+        </section>
+        <section>
+          <h2>展開中</h2>
+          <ul id="expanded" class="group-list"></ul>
+        </section>
+        <section>
+          <h2>フィルタ</h2>
+          <label class="check"><input type="checkbox" id="hide-isolated" checked /> 孤立ノードを隠す</label>
+          <label class="check"><input type="checkbox" id="layer-lanes" checked /> 層で分ける(レーン配置)</label>
+          <label class="check"><input type="checkbox" id="staged-expand" /> 段階展開(折りたたみ操作)</label>
+          <label class="check"><input type="checkbox" id="problem-only" /> 問題のあるノードのみ表示</label>
+          <label class="check"><input type="checkbox" id="arch-only" /> 層の依存方向違反のみ</label>
+          <label class="check"><input type="checkbox" id="no-limit" checked /> 表示数の目安(300)を超えても展開する</label>
+          <p class="hint" style="margin-top:8px">問題の種類(ON=強調・問題判定に含める)</p>
+          <div id="kinds" class="issue-filters"></div>
+        </section>
+        <section>
+          <h2>設計上の指摘</h2>
+          <p class="hint">クリックで該当ノードまでジャンプします。</p>
+          <ul id="issues" class="issue-list"></ul>
+          <p id="issues-empty" class="muted hidden">指摘はありません。</p>
+        </section>
+        <section>
+          <h2>選択中</h2>
+          <div id="selection" class="selection muted">ノードをクリックすると依存元・依存先をハイライトします。</div>
+        </section>
+      </aside>
+      <div class="stage">
+        <div id="graph" class="graph" role="img" aria-label="dependency graph"></div>
+        <div id="counter" class="counter">読み込み中…</div>
+        <div id="tip" class="tip hidden"></div>
+        <div class="legend">
+          <span><i style="background:#ff5252"></i>循環</span><span><i style="background:#ffa726"></i>ハブ</span><span><i style="background:#d05ce3"></i>肥大</span><span><i style="background:#9aa5b1"></i>孤立</span><span><i style="background:#ff80ab"></i>レイヤー</span>
+          <span class="muted">既定: 層レーンに全文ラベルで全展開 · fit下限50% · 赤い矢印=層違反 · ズーム/パンで閲覧</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="status">読み込み中…</div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

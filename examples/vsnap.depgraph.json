@@ -1,0 +1,154 @@
+{
+  "hub": { "degreeThreshold": 12 },
+  "bloat": { "locThreshold": 500 },
+  "orphans": {
+    "ignore": [
+      "**/test/**",
+      "**/tests/**",
+      "**/*_test.*",
+      "**/*Test.cs",
+      "**/main.dart",
+      "**/Program.cs",
+      "**/__init__.py",
+      "**/Editor/**"
+    ]
+  },
+  "clusters": [
+    {
+      "name": "Flutter",
+      "match": ["vsnap-client-uaal/", "vsnap-client/"],
+      "color": "#4fc3f7"
+    },
+    {
+      "name": "Unity",
+      "match": ["vsnap-core/", "vsnap-unity/", "vsnap-filter-preview/"],
+      "color": "#81c784"
+    },
+    {
+      "name": "Python API",
+      "match": [
+        "vsnap-photo-map/",
+        "vsnap-news/",
+        "vsnap-telemetry/",
+        "vsnap-ardy-server/",
+        "vsnap-vroid-hub-api/"
+      ],
+      "color": "#ffd54f"
+    }
+  ],
+  "featureRoots": [
+    { "match": "Assets/Shared/*", "depth": 1 },
+    { "match": "lib/*", "depth": 1 },
+    { "match": "api/*", "depth": 1 },
+    { "match": "src/ardy_server/*", "depth": 1 },
+    { "match": "src/handlers/*", "depth": 1 }
+  ],
+  "archLayers": [
+    {
+      "name": "プレゼンテーション",
+      "match": [
+        "**/Presentation/**",
+        "**/UI/**",
+        "**/lib/widgets/**",
+        "**/Views/**",
+        "**/Screens/**",
+        "**/Shared/Colocation/Card/**",
+        "**/Shared/AR/*Presenter*",
+        "**/Shared/AR/**Presenter*"
+      ],
+      "color": "#e879c6",
+      "order": 40,
+      "mayDependOn": ["アプリケーション", "ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "アプリケーション",
+      "match": [
+        "**/Application/**",
+        "**/Command/**",
+        "**/Commands/**",
+        "**/Handlers/**",
+        "**/Handler/**",
+        "**/UseCases/**",
+        "**/Services/**",
+        "**/src/handlers/**",
+        "**/lib/app/**",
+        "**/src/ardy_server/**",
+        "**/Shared/Camera/**",
+        "**/Shared/Colocation/**",
+        "**/Shared/AR/**",
+        "**/Shared/Filter/**",
+        "**/Shared/Light/**",
+        "**/Shared/Tutorial/**",
+        "**/Shared/Effects/**",
+        "**/Shared/Pose/**",
+        "**/Shared/Character/**"
+      ],
+      "color": "#4da3ff",
+      "order": 30,
+      "mayDependOn": ["ドメイン", "インフラ", "共通・基盤"]
+    },
+    {
+      "name": "ドメイン",
+      "match": ["**/Domain/**", "**/Models/**", "**/Entities/**"],
+      "color": "#f5c542",
+      "order": 20,
+      "mayDependOn": ["共通・基盤"]
+    },
+    {
+      "name": "インフラ",
+      "match": [
+        "**/Infrastructure/**",
+        "**/Persistence/**",
+        "**/Repositories/**",
+        "**/lib/storage/**",
+        "**/lib/platform/**",
+        "**/lib/auth/**",
+        "**/lib/purchases/**",
+        "**/lib/telemetry/**",
+        "**/Nsdk/**",
+        "**/Shared/Colocation/Vps/**"
+      ],
+      "color": "#4cc38a",
+      "order": 10,
+      "mayDependOn": ["ドメイン", "共通・基盤"]
+    },
+    {
+      "name": "共通・基盤",
+      "match": [
+        "**/Util/**",
+        "**/Core/**",
+        "**/Common/**",
+        "**/lib/config/**",
+        "**/lib/theme/**",
+        "**/lib/l10n/**",
+        "**/lib/util/**",
+        "**/Diagnostics/**",
+        "**/Runtime/**",
+        "**/Installer/**"
+      ],
+      "color": "#a78bfa",
+      "order": 0,
+      "mayDependOn": []
+    },
+    {
+      "name": "テスト・ツール・外部",
+      "match": [
+        "**/tests/**",
+        "**/test/**",
+        "**/Editor/**",
+        "**/Sample/**",
+        "**/Samples/**",
+        "**/vsnap-filter-preview/**",
+        "**/100BestEffectPack/**",
+        "**/_Creepy_Cat/**",
+        "**/Standard Assets/**",
+        "**/MobileARTemplateAssets/**",
+        "**/XRIStarterAssets/**",
+        "**/ephemeral/**"
+      ],
+      "color": "#7f8ea3",
+      "order": -10,
+      "neutral": true
+    }
+  ]
+}
