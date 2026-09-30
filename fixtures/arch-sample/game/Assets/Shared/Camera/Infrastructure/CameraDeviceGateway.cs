@@ -1,3 +1,5 @@
+using Game.Camera.Domain;
+
 namespace Game.Camera.Infrastructure
 {
     public class CameraDeviceGateway

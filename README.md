@@ -33,7 +33,32 @@ npm start -- /path/to/repo --report-unclassified --config ./examples/vsnap.depgr
 
 `--report-unclassified` は未分類率と、未分類が多いディレクトリ上位10を表示します（`archLayers` を育てる材料）。
 
-解析 JSON では `summary.layerMatrix` / `layerViolations` / `unclassifiedRate` が**全体**、`summary.layerMatrixScopes` に **クラスタ別** (`byCluster`) と **クラスタ間** (`interCluster`) の同種データ（層一覧・層×層行列・層違反・未分類率）が入ります。クラスタ名は `clusters` 設定と `summary.clusters` から決まります。
+解析 JSON では `summary.layerMatrix` / `layerViolations` / `unclassifiedRate` が**全体**、`summary.layerMatrixScopes` に **クラスタ別** (`byCluster`) と **クラスタ間** (`interCluster`) の同種データ（層一覧・層×層行列・層違反・未分類率）が入ります。クラスタ名は `clusters` 設定と `summary.clusters` から決まります。JSON には `.asmdef` の一覧 `assemblies` も入ります（ファイル数には含めません）。
+
+### 3D 表示（単一 HTML・オフライン）
+
+依存が多く 2D では追いきれないときに、ブラウザ上で回転・ズームできる 3D グラフを出します。サーバーは要りません。Three.js は HTML に埋め込んであるので、ネットがなくても開けます。
+
+```bash
+npm start -- ./fixtures/arch-sample --html3d ./out/depgraph-3d.html
+```
+
+生成した `out/depgraph-3d.html` をブラウザで開いてください。
+
+- **粒度**: ファイル / アセンブリ（`.asmdef`）。アセンブリに入らないファイルはクラスタごとのまとまりになります
+- **辺**: 矢印は依存先を指します。C# の `using` と型参照、Dart / Python の import、asmdef の `references`（名前と `GUID:`）を含みます
+- **層**: Application / Presentation / Domain / Infrastructure などは、色と空間上のまとまりで分けます。どの層が上か下かは高さも帯も使いません
+- **操作**: ドラッグで回転、ホイールでズーム、ノードをドラッグで移動。ホバーで名前と接続線を強調。検索と、層ごとの表示切り替えもあります
+
+vsnap 向けも同じコマンドです。固有の層やクラスタは `examples/vsnap.depgraph.json` で渡します。
+
+```bash
+npm start -- /path/to/vsnap-projects --config ./examples/vsnap.depgraph.json \
+  -x Library,Temp,Logs,obj,bin,.git,node_modules \
+  --html3d ./out/vsnap-3d.html
+```
+
+3D の粒度は `--granularity` とは別で、いつもファイルと asmdef の 2 種類です。既存の 2D 表示はそのままです。
 
 ### 付属サンプル
 
@@ -156,11 +181,13 @@ npx tsc --noEmit
 
 | パス | 役割 |
 |------|------|
-| `src/cli.ts` | CLI（`--config` / `-x` / `--report-unclassified`） |
+| `src/cli.ts` | CLI（`--config` / `-x` / `--html3d` / `--report-unclassified`） |
+| `src/analyzer/asmdef.ts` | `.asmdef` の references（名前と GUID） |
 | `src/server.ts` | localhost HTTP |
 | `src/analyzer/layers.ts` | 汎用の層・feature 分類と依存方向検査 |
 | `src/analyzer/cluster.ts` | クラスタ |
-| `src/web/` | UI（Cytoscape + dagre） |
+| `src/web/` | 2D UI（Cytoscape + dagre）と 3D 用の Three.js |
+| `src/view3d/` | 単一 HTML の 3D グラフ生成（`--html3d`） |
 | `examples/vsnap.depgraph.json` | vsnap 専用設定 |
 | `fixtures/arch-sample/` | 層/機能の動作確認用ミニ構成 |
 

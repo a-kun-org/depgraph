@@ -30,6 +30,21 @@ namespace Sample.UI {
     expect(result.imports.some((i) => i.moduleName === "GameState")).toBe(true);
   });
 
+  it("captures C# return types and new expressions", () => {
+    const src = `
+public class Gateway {
+  public CameraPose Read() {
+    return new CameraPose();
+  }
+}
+`;
+    const result = csharpScanner.scan(src, "Gateway.cs");
+    expect(result.classes.map((c) => c.name)).toContain("Gateway");
+    expect(result.imports.some((i) => i.kind === "reference" && i.moduleName === "CameraPose")).toBe(
+      true,
+    );
+  });
+
   it("parses Dart imports and classes", () => {
     const src = `
 import 'package:app/services/api_client.dart';
