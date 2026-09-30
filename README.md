@@ -33,6 +33,8 @@ npm start -- /path/to/repo --report-unclassified --config ./examples/vsnap.depgr
 
 `--report-unclassified` は未分類率と、未分類が多いディレクトリ上位10を表示します（`archLayers` を育てる材料）。
 
+解析 JSON では `summary.layerMatrix` / `layerViolations` / `unclassifiedRate` が**全体**、`summary.layerMatrixScopes` に **クラスタ別** (`byCluster`) と **クラスタ間** (`interCluster`) の同種データ（層一覧・層×層行列・層違反・未分類率）が入ります。クラスタ名は `clusters` 設定と `summary.clusters` から決まります。
+
 ### 付属サンプル
 
 ```bash
@@ -51,7 +53,8 @@ npm start -- ./fixtures/arch-sample
   - **機能**: feature カードと集約矢印
 - 依存線は既定で薄く表示。**ノードホバー / 選択**で、そのノードにつながる線だけを強調
 - 検索・フィルタ（孤立隠し / 層で分ける / 段階展開 / 問題のみ / **層の依存方向違反のみ** / 種類トグル）。違反のみON時は端点ノードを強調し違反辺を太く表示
-- サイドバーの **層×層 依存行列**。セルクリックで該当依存をハイライト
+- サイドバーの **層×層 依存行列**。集計範囲を **全体 / 各クラスタ / クラスタ間** で切り替え可能（既定は全体）。クラスタ別はそのクラスタ内のファイル同士の依存のみ。クラスタ間は言語・フレームワークをまたぐ依存を層×層で表示。セルクリックで該当依存をハイライト（違反セルの赤表示も切り口に追従）
+- 行列の集計範囲に合わせて、**層違反の一覧**とヘッダの**未分類率**も絞り込み（可能な範囲）
 - 選択パネルに **層・feature・layerReason** を表示
 
 ### vsnap-like デモ

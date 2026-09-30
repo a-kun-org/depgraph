@@ -387,3 +387,5 @@ a.jump:hover { text-decoration: underline; }
 .layer-matrix .mx-cell.bad { outline: 1px solid #ff5252; }
 .layer-matrix .mx-cell.active { outline: 2px solid #ffe082; }
 .layer-legend { margin-top: 8px; font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+.matrix-scope-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; margin: 8px 0; color: var(--muted); }
+.matrix-scope-label select { font-size: 0.82rem; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-soft); color: var(--text); }

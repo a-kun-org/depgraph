@@ -151,6 +151,7 @@ export function analyze(
       layers: arch.layers,
       layerMatrix: arch.layerMatrix,
       layerViolations: arch.layerViolations,
+      layerMatrixScopes: arch.layerMatrixScopes,
       features: arch.features,
       unclassifiedRate: arch.unclassifiedRate,
       unclassifiedTopDirs: arch.unclassifiedTopDirs,

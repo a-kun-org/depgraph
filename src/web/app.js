@@ -55,6 +55,8 @@ const state = {
     unit: "directory", // directory | file (段階展開時)
     noLimit: true, // 全展開既定のため上限解除
     matrixPair: null,
+    /** overall | inter | クラスタ名(layerMatrixScopes.byCluster のキー) */
+    matrixScope: "overall",
   },
   sel: { ids: [], mode: "none" },
   labelsOn: null,
@@ -83,6 +85,7 @@ const el = {
   clusterStats: $("cluster-stats"),
   layerMatrix: $("layer-matrix"),
   layerLegend: $("layer-legend"),
+  matrixScope: $("matrix-scope"),
   kinds: $("kinds"),
   problemOnly: $("problem-only"),
   hideIsolated: $("hide-isolated"),
@@ -255,15 +258,95 @@ function layerOrderList() {
   return [...layers].filter((l) => l.fileCount > 0 || l.key === "未分類").sort((a, b) => b.order - a.order);
 }
 
+function matrixScopeIssueFilter(is) {
+  const scope = state.ui.matrixScope;
+  if (scope === "overall") return true;
+  const m = state.model;
+  if (!m) return true;
+  const files = (is.locations || []).map((id) => m.files.get(id)).filter(Boolean);
+  if (!files.length) return true;
+  if (scope === "inter") {
+    if (isArchViolationIssue(is) && files.length >= 2) {
+      return files[0].cluster !== files[1].cluster;
+    }
+    const clusters = new Set(files.map((f) => f.cluster));
+    return clusters.size > 1;
+  }
+  if (isArchViolationIssue(is)) {
+    return files.length >= 2 && files.every((f) => f.cluster === scope);
+  }
+  return files.some((f) => f.cluster === scope);
+}
+
+function edgeMatchesMatrixScope(a, b) {
+  const scope = state.ui.matrixScope;
+  if (scope === "overall") return true;
+  if (scope === "inter") return a.cluster !== b.cluster;
+  return a.cluster === scope && b.cluster === scope;
+}
+
+function activeLayerScope() {
+  const s = state.data?.summary;
+  if (!s) return null;
+  const scope = state.ui.matrixScope;
+  const scopes = s.layerMatrixScopes;
+  if (!scopes || scope === "overall") {
+    return {
+      key: "overall",
+      layers: s.layers || [],
+      layerMatrix: s.layerMatrix,
+      layerViolations: s.layerViolations,
+      unclassifiedRate: s.unclassifiedRate,
+      unclassifiedTopDirs: s.unclassifiedTopDirs,
+    };
+  }
+  if (scope === "inter") {
+    const inter = scopes.interCluster;
+    if (!inter) return null;
+    return { key: "inter", ...inter };
+  }
+  const cluster = scopes.byCluster?.[scope];
+  if (!cluster) return null;
+  return { key: scope, ...cluster };
+}
+
 function archViolationPairs() {
+  const active = activeLayerScope();
+  if (active?.layerViolations?.byPair?.length) {
+    const set = new Set();
+    for (const p of active.layerViolations.byPair) set.add(`${p.from}\t${p.to}`);
+    return set;
+  }
   const set = new Set();
   for (const is of state.data?.issues || []) {
-    if (!isArchViolationIssue(is)) continue;
+    if (!isArchViolationIssue(is) || !matrixScopeIssueFilter(is)) continue;
     const fl = is.details?.find((d) => d.startsWith("from_layer: "))?.slice(12);
     const tl = is.details?.find((d) => d.startsWith("to_layer: "))?.slice(10);
     if (fl && tl) set.add(`${fl}\t${tl}`);
   }
   return set;
+}
+
+function renderMatrixScopeOptions() {
+  if (!el.matrixScope || !state.data?.summary) return;
+  const prev = state.ui.matrixScope;
+  const scopes = state.data.summary.layerMatrixScopes;
+  const opts = [{ value: "overall", label: "全体" }];
+  if (scopes?.byCluster) {
+    for (const c of state.data.summary.clusters || []) {
+      if (scopes.byCluster[c.key]) opts.push({ value: c.key, label: c.key });
+    }
+    for (const key of Object.keys(scopes.byCluster)) {
+      if (!opts.some((o) => o.value === key)) opts.push({ value: key, label: key });
+    }
+  }
+  if (scopes?.interCluster) opts.push({ value: "inter", label: "クラスタ間" });
+  el.matrixScope.innerHTML = opts
+    .map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`)
+    .join("");
+  const valid = opts.some((o) => o.value === prev);
+  state.ui.matrixScope = valid ? prev : "overall";
+  el.matrixScope.value = state.ui.matrixScope;
 }
 
 function majorityLayerOf(files) {
@@ -1654,6 +1737,7 @@ function renderIssues() {
   const issues = state.data.issues.filter((i) => {
     if (!ui.kinds[i.kind]) return false;
     if (ui.archOnly && !isArchViolationIssue(i)) return false;
+    if (ui.matrixScope !== "overall" && !matrixScopeIssueFilter(i)) return false;
     return true;
   });
   const CAP = 300;
@@ -1689,9 +1773,18 @@ function renderIssues() {
 function updateSummary() {
   const s = state.data.summary;
   const langs = Object.entries(s.languages || {}).map(([k, v]) => `${k}:${v}`).join(" ");
-  const unc = s.unclassifiedRate != null ? ` · 未分類 ${(s.unclassifiedRate * 100).toFixed(0)}%` : "";
-  const lv = s.layerViolations?.count != null ? ` · 層違反 ${s.layerViolations.count}` : "";
-  el.summary.textContent = `${s.fileCount} ファイル · ${s.edgeCount} 依存 · ${s.issueCount} 指摘${lv}${unc} · ${langs}`;
+  const scope = activeLayerScope();
+  const uncRate = scope?.unclassifiedRate ?? s.unclassifiedRate;
+  const unc = uncRate != null ? ` · 未分類 ${(uncRate * 100).toFixed(0)}%` : "";
+  const lvCount = scope?.layerViolations?.count ?? s.layerViolations?.count;
+  const lv = lvCount != null ? ` · 層違反 ${lvCount}` : "";
+  const scopeLabel =
+    state.ui.matrixScope === "overall"
+      ? ""
+      : state.ui.matrixScope === "inter"
+        ? " · 行列:クラスタ間"
+        : ` · 行列:${state.ui.matrixScope}`;
+  el.summary.textContent = `${s.fileCount} ファイル · ${s.edgeCount} 依存 · ${s.issueCount} 指摘${lv}${unc}${scopeLabel} · ${langs}`;
 }
 
 /* ---------------- 検索 ---------------- */
@@ -1749,6 +1842,7 @@ async function loadAnalysis() {
     if (!res.ok) throw new Error(await res.text());
     state.data = await res.json();
     state.model = buildModel(state.data);
+    renderMatrixScopeOptions();
     clearSelectionState();
     updateSummary();
     renderKinds();
@@ -1785,6 +1879,15 @@ el.archOnly?.addEventListener("change", () => {
   state.ui.archOnly = el.archOnly.checked;
   clearSelectionState();
   render({ fit: true });
+});
+el.matrixScope?.addEventListener("change", () => {
+  state.ui.matrixScope = el.matrixScope.value;
+  state.ui.matrixPair = null;
+  clearSelectionState();
+  updateSummary();
+  renderIssues();
+  renderLayerMatrix();
+  render({ fit: false });
 });
 el.layerLanes?.addEventListener("change", () => {
   state.ui.layerLanes = el.layerLanes.checked;
@@ -2171,14 +2274,16 @@ function buildFeatureView() {
 }
 
 function renderLayerMatrix() {
-  if (!el.layerMatrix || !state.data?.summary?.layerMatrix) return;
-  const mx = state.data.summary.layerMatrix;
-  const layers = mx.layers.filter((k) => (state.data.summary.layers || []).find((l) => l.key === k && l.fileCount > 0) || k === "未分類");
+  const active = activeLayerScope();
+  if (!el.layerMatrix || !active?.layerMatrix) return;
+  const mx = active.layerMatrix;
+  const layerSummaries = active.layers || state.data.summary.layers || [];
+  const layers = mx.layers.filter((k) => layerSummaries.find((l) => l.key === k && l.fileCount > 0) || k === "未分類");
   const max = Math.max(1, ...layers.flatMap((a) => layers.map((b) => mx.cells?.[a]?.[b] || 0)));
   const viol = archViolationPairs();
-  let html = `<table><thead><tr><th></th>${layers.map((l) => `<th title="${escapeHtml(l)}">${escapeHtml((state.data.summary.layers.find((x) => x.key === l)?.short) || l.slice(0, 3))}</th>`).join("")}</tr></thead><tbody>`;
+  let html = `<table><thead><tr><th></th>${layers.map((l) => `<th title="${escapeHtml(l)}">${escapeHtml((layerSummaries.find((x) => x.key === l)?.short) || l.slice(0, 3))}</th>`).join("")}</tr></thead><tbody>`;
   for (const a of layers) {
-    html += `<tr><th title="${escapeHtml(a)}">${escapeHtml((state.data.summary.layers.find((x) => x.key === a)?.short) || a.slice(0, 3))}</th>`;
+    html += `<tr><th title="${escapeHtml(a)}">${escapeHtml((layerSummaries.find((x) => x.key === a)?.short) || a.slice(0, 3))}</th>`;
     for (const b of layers) {
       const n = mx.cells?.[a]?.[b] || 0;
       const intensity = n ? 0.15 + 0.75 * (n / max) : 0;
@@ -2191,8 +2296,14 @@ function renderLayerMatrix() {
   html += "</tbody></table>";
   el.layerMatrix.innerHTML = html;
   if (el.layerLegend) {
-    const rate = ((state.data.summary.unclassifiedRate || 0) * 100).toFixed(0);
-    el.layerLegend.innerHTML = `未分類率 ${rate}% · 期待: プレゼン→アプリ→ドメイン←インフラ · 共通は参照可`;
+    const rate = ((active.unclassifiedRate ?? state.data.summary.unclassifiedRate) || 0) * 100;
+    const scopeHint =
+      state.ui.matrixScope === "inter"
+        ? "クラスタをまたぐ依存のみ"
+        : state.ui.matrixScope === "overall"
+          ? "全ファイル"
+          : `${state.ui.matrixScope} 内の依存のみ`;
+    el.layerLegend.innerHTML = `未分類率 ${rate.toFixed(0)}% (${scopeHint}) · 期待: プレゼン→アプリ→ドメイン←インフラ · 共通は参照可`;
   }
   el.layerMatrix.querySelectorAll(".mx-cell").forEach((td) => {
     td.addEventListener("click", () => {
@@ -2203,7 +2314,7 @@ function renderLayerMatrix() {
       for (const e of state.model.edges) {
         const a = state.model.files.get(e.s);
         const b = state.model.files.get(e.t);
-        if (a?.layer === from && b?.layer === to) {
+        if (a?.layer === from && b?.layer === to && edgeMatchesMatrixScope(a, b)) {
           ids.push(a.id, b.id);
         }
       }

@@ -15,6 +15,7 @@ import {
   LAYER_TOOLS,
 } from "../src/analyzer/layers.js";
 import { analyze, loadRules } from "../src/analyzer/index.js";
+import { computeFileEdges } from "../src/analyzer/graph.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const archRoot = path.join(__dirname, "../fixtures/arch-sample");
@@ -225,5 +226,52 @@ describe("vsnap.depgraph.json against vsnap-like fixture", () => {
     const unityLayers = new Set(unity.map((f) => f.layerKey));
     expect(unityLayers.has(LAYER_PRESENTATION) || unityLayers.has(LAYER_APPLICATION)).toBe(true);
     expect(unityLayers.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("exposes per-cluster and inter-cluster layer matrices", () => {
+    const rules = loadRules(vsnapConfig);
+    const result = analyze(vsnapLikeRoot, { rules });
+    const scopes = result.summary.layerMatrixScopes;
+    expect(scopes).toBeDefined();
+    expect(scopes!.byCluster.Flutter).toBeDefined();
+    expect(scopes!.byCluster.Unity).toBeDefined();
+    expect(scopes!.byCluster["Python API"]).toBeDefined();
+    expect(scopes!.interCluster).toBeDefined();
+
+    const flutterFiles = result.graph.files.filter((f) => f.clusterKey === "Flutter");
+    let manual = 0;
+    for (const { from, to } of computeFileEdges(flutterFiles)) {
+      if (from.clusterKey === "Flutter" && to.clusterKey === "Flutter") manual++;
+    }
+    const cells = scopes!.byCluster.Flutter.layerMatrix.cells;
+    let sum = 0;
+    for (const row of Object.values(cells)) {
+      for (const n of Object.values(row || {})) sum += n;
+    }
+    expect(sum).toBe(manual);
+
+    const flutterViol = scopes!.byCluster.Flutter.layerViolations.count;
+    const allViol = result.summary.layerViolations.count;
+    expect(flutterViol).toBeLessThanOrEqual(allViol);
+    expect(flutterViol).toBeGreaterThan(0);
+
+    const flutterUnc =
+      flutterFiles.filter((f) => f.layerKey === "未分類").length / flutterFiles.length;
+    expect(scopes!.byCluster.Flutter.unclassifiedRate).toBeCloseTo(flutterUnc, 5);
+  });
+});
+
+describe("arch-sample cluster layer scopes", () => {
+  it("splits matrices by Flutter / Unity / Python API clusters", () => {
+    const rules = loadRules(undefined, archRoot);
+    const result = analyze(archRoot, { rules });
+    const scopes = result.summary.layerMatrixScopes!;
+    expect(Object.keys(scopes.byCluster).sort()).toEqual(
+      ["Flutter", "Python API", "Unity"].sort(),
+    );
+    for (const key of ["Flutter", "Unity", "Python API"]) {
+      expect(scopes.byCluster[key].layerMatrix.layers.length).toBeGreaterThan(0);
+      expect(scopes.byCluster[key].layers.some((l) => l.fileCount > 0)).toBe(true);
+    }
   });
 });
