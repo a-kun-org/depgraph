@@ -39,7 +39,74 @@ export const csharpScanner: LanguageScanner = {
       "Quaternion",
       "Color",
       "Debug",
+      "byte",
+      "char",
+      "long",
+      "short",
+      "uint",
+      "ulong",
+      "decimal",
+      "String",
+      "Object",
+      "Int32",
+      "Boolean",
+      "Single",
+      "Double",
     ]);
+
+    const skipWord = new Set([
+      "class",
+      "interface",
+      "struct",
+      "enum",
+      "record",
+      "namespace",
+      "using",
+      "return",
+      "new",
+      "if",
+      "for",
+      "foreach",
+      "while",
+      "switch",
+      "catch",
+      "get",
+      "set",
+      "public",
+      "private",
+      "protected",
+      "internal",
+      "static",
+      "this",
+      "base",
+      "null",
+      "true",
+      "false",
+      "var",
+      "out",
+      "ref",
+      "in",
+      "where",
+      "nameof",
+      "typeof",
+      "async",
+      "await",
+      "const",
+      "readonly",
+      "void",
+    ]);
+
+    const addTypeRef = (name: string | undefined, lineNo: number) => {
+      if (!name) return;
+      const base = name.split(".").pop() ?? name;
+      if (!base || knownBuiltin.has(base) || knownBuiltin.has(name) || skipWord.has(base)) return;
+      imports.push({
+        raw: name,
+        moduleName: name,
+        line: lineNo,
+        kind: "reference",
+      });
+    };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -51,7 +118,7 @@ export const csharpScanner: LanguageScanner = {
         continue;
       }
 
-      const usingMatch = line.match(/^\s*using\s+(?:static\s+)?([A-Za-z_][\w.]*)\s*;/);
+      const usingMatch = line.match(/^\s*(?:global\s+)?using\s+(?:static\s+)?([A-Za-z_][\w.]*)\s*;/);
       if (usingMatch) {
         imports.push({
           raw: usingMatch[1]!,
@@ -144,6 +211,19 @@ export const csharpScanner: LanguageScanner = {
               kind: "reference",
             });
           }
+        }
+      }
+
+      // 戻り値の型: public CameraPose Read()
+      const returnMatch = line.match(
+        /^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|sealed|async|partial|readonly|required|unsafe|extern|new)\s+)+([A-Za-z_][\w.]*)\s+[A-Za-z_]\w*\s*\(/,
+      );
+      if (returnMatch) addTypeRef(returnMatch[1], lineNo);
+
+      // new CameraPose() / new TelemetryEvent { ... }
+      if (!/^\s*\/\//.test(line)) {
+        for (const m of line.matchAll(/\bnew\s+([A-Za-z_][\w.]*)/g)) {
+          addTypeRef(m[1], lineNo);
         }
       }
     }

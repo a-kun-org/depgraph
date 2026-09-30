@@ -1,0 +1,4 @@
+{
+  "name": "Game.Camera",
+  "references": ["Game.Util"]
+}

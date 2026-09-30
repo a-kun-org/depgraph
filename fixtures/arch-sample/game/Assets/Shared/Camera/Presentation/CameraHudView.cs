@@ -1,3 +1,5 @@
+using Game.Camera.Application;
+
 namespace Game.Camera.Presentation
 {
     public class CameraHudView

@@ -1,3 +1,6 @@
+using Game.Telemetry.Application;
+using Game.Telemetry.Domain;
+
 namespace Game.Telemetry.Infrastructure
 {
     public class TelemetryHttpClient

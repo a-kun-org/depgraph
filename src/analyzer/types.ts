@@ -220,10 +220,28 @@ export interface AnalysisRules {
   };
 }
 
+/** Unity asmdef。ファイル走査とは別に集め、ファイル数には含めない。 */
+export interface AssemblyInfo {
+  /** `asm:<name>`。同名が複数あるときだけディレクトリを足す */
+  id: string;
+  name: string;
+  /** リポジトリ相対の .asmdef パス */
+  path: string;
+  /** この asmdef が支配するディレクトリ（配下のより深い asmdef が優先） */
+  directory: string;
+  /** asmdef の references をそのまま */
+  references: string[];
+  /** この解析ツリー内に解決できた参照先の assembly id */
+  resolvedReferences: string[];
+  guid?: string;
+}
+
 export interface AnalysisResult {
   graph: DependencyGraph;
   issues: DesignIssue[];
   rules: AnalysisRules;
+  /** .asmdef の名前と references。無いリポジトリでは空 */
+  assemblies: AssemblyInfo[];
   summary: {
     fileCount: number;
     edgeCount: number;

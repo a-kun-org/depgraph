@@ -4,6 +4,8 @@ import path from "node:path";
 import { Command } from "commander";
 import { analyze, analysisToJson, printUnclassifiedReport } from "./analyzer/index.js";
 import { startServer } from "./server.js";
+import { buildView3d } from "./view3d/build.js";
+import { render3dHtml } from "./view3d/html.js";
 
 const program = new Command();
 
@@ -16,6 +18,10 @@ program
   .option("-r, --rules <file>", "Rules / config JSON (alias of --config)")
   .option("-c, --config <file>", "depgraph.config.json / rules JSON")
   .option("-o, --output <file>", "Write full analysis JSON to file (no server)")
+  .option(
+    "--html3d <file>",
+    "Write a self-contained 3D HTML file and exit (offline, Three.js inlined)",
+  )
   .option("--json", "Print analysis JSON to stdout (no server)", false)
   .option(
     "-g, --granularity <level>",
@@ -61,6 +67,8 @@ program
         }
       }
 
+      if (opts.html3d) writeHtml3d(result, String(opts.html3d));
+
       if (opts.output) {
         fs.writeFileSync(path.resolve(opts.output), analysisToJson(result), "utf8");
         console.log(`Wrote ${opts.output}`);
@@ -75,6 +83,8 @@ program
         process.stdout.write(analysisToJson(result));
         return;
       }
+
+      if (opts.html3d) return;
 
       if (opts.reportUnclassified && !opts.output) {
         // still start server unless user only wanted the report — keep server as default UX
@@ -98,6 +108,18 @@ program
       process.exit(1);
     }
   });
+
+function writeHtml3d(result: ReturnType<typeof analyze>, file: string) {
+  const out = path.resolve(file);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  const model = buildView3d(result);
+  fs.writeFileSync(out, render3dHtml(model), "utf8");
+  console.log(`Wrote ${out}`);
+  console.log(
+    `3D: ファイル ${model.file.nodes.length} ノード / ${model.file.edges.length} エッジ, アセンブリ ${model.assembly.nodes.length} ノード / ${model.assembly.edges.length} エッジ`,
+  );
+  console.log("ブラウザでこの HTML を開いてください（サーバー不要。オフラインでも動作します）");
+}
 
 function printIssueBrief(result: ReturnType<typeof analyze>) {
   if (result.issues.length === 0) {

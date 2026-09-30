@@ -6,6 +6,7 @@ import { scannerForExtension, scanners } from "./scanners/index.js";
 import { toSourceFile } from "./scanners/base.js";
 import { buildGraph, defaultRules } from "./graph.js";
 import { assignLayersAndFeatures, summarizeLayers } from "./layers.js";
+import { collectAssemblies } from "./asmdef.js";
 import { detectAll } from "./detectors/index.js";
 
 const IGNORE_DIRS = new Set([
@@ -123,7 +124,9 @@ export function analyze(
   }
 
   const rules = options.rules ?? loadRules(options.rulesPath, absRoot);
-  const files = collectFiles(absRoot, options.exclude ?? []);
+  const exclude = options.exclude ?? [];
+  const files = collectFiles(absRoot, exclude);
+  const assemblies = collectAssemblies(absRoot, exclude);
   const granularity = options.granularity ?? "file";
   for (const f of files) f.clusterKey = clusterKeyFor(f, rules.clusters);
   assignLayersAndFeatures(files, rules);
@@ -141,6 +144,7 @@ export function analyze(
     graph,
     issues,
     rules,
+    assemblies,
     summary: {
       fileCount: files.length,
       edgeCount: graph.edges.length,
